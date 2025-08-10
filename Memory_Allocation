@@ -1,0 +1,85 @@
+#include <stdio.h>
+#include <stdbool.h>
+#include <stddef.h>
+
+#define MEM_SIZE 102400       
+#define NUM_BLOCKS 128         
+#define BLOCK_SIZE (MEM_SIZE / NUM_BLOCKS) 
+
+static char ram[MEM_SIZE];        
+static bool used[NUM_BLOCKS] = {0}; 
+static void *blkAddr[NUM_BLOCKS];   
+
+// Allocate memory of given size in bytes
+int* allocate(int bytes) {
+    if (bytes <= 0 || bytes > MEM_SIZE) return NULL;
+
+    int blocks_needed = (bytes + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    int free_count = 0, start_idx = -1;
+
+    for (int i = 0; i < NUM_BLOCKS; i++) {
+        if (!used[i]) {
+            if (start_idx == -1) start_idx = i;
+            free_count++;
+            if (free_count == blocks_needed) {
+                for (int j = start_idx; j < start_idx + blocks_needed; j++) {
+                    used[j] = true;
+                    blkAddr[j] = ram + j * BLOCK_SIZE;
+                }
+                return (int*)blkAddr[start_idx];
+            }
+        } else {
+            free_count = 0;
+            start_idx = -1;
+        }
+    }
+    return NULL;
+}
+
+// Free allocated memory
+void deallocate(int *ptr) {
+    if (!ptr) return;
+    for (int i = 0; i < NUM_BLOCKS; i++) {
+        if (blkAddr[i] == ptr) {
+            while (i < NUM_BLOCKS && used[i]) {
+                used[i] = false;
+                blkAddr[i] = NULL;
+                i++;
+            }
+            return;
+        }
+    }
+}
+
+
+int main() {
+    int *mem[100];
+
+    // Test case 1
+    printf("Test case 1:\n");
+    mem[0] = allocate(128);
+    mem[1] = allocate(1024);
+    mem[2] = allocate(4096);
+    printf("Allocated:\n%p\n%p\n%p\n", mem[0], mem[1], mem[2]);
+
+    deallocate(mem[1]);
+    mem[1] = allocate(512);
+    printf("Re-allocated:\n%p\n", mem[1]);
+    deallocate(mem[0]);
+    deallocate(mem[1]);
+    deallocate(mem[2]);
+
+    // Test case 2
+    printf("\nTest case 2:\n");
+    mem[0] = allocate(1);
+    if (mem[0]) printf("Allocated 1B: %p\n", mem[0]);
+    else printf("1B allocation failed\n");
+    deallocate(mem[0]);
+
+    mem[0] = allocate(MEM_SIZE);
+    if (mem[0]) printf("Allocated 100KB: %p\n", mem[0]);
+    else printf("100KB allocation failed\n");
+    deallocate(mem[0]);
+
+    return 0;
+}
